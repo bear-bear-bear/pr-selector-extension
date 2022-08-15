@@ -10,5 +10,15 @@
       "js": ["script.js"],
       "run_at": "document_start"
     }
-  ]
+  ],
+  "icons": {
+    "16": "github-16x16.png",
+    "32": "github-32x32.png"
+  },
+  "action": {
+    "default_icon": {
+      "16": "github-16x16.png",
+      "32": "github-32x32.png"
+    }
+  }
 }
