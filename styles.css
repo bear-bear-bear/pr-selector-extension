@@ -7,7 +7,7 @@
 .ex-select-wrapper {
     position: relative;
     display: flex;
-    width: 14em;
+    width: 15em;
     height: inherit;
     border-radius: .25em;
     overflow: hidden;
