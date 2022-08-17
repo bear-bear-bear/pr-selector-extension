@@ -2,13 +2,13 @@
   "manifest_version": 3,
   "name": "PR selector",
   "description": "Select PR templates by fixed file names (FEATURE.md, FIX.md)",
-  "version": "1.0.0",
+  "version": "1.1.0",
   "content_scripts": [
     {
-      "matches": ["https://github.com/*/compare/*"],
+      "matches": ["https://github.com/*/compare/*expand=1*"],
       "css": ["styles.css"],
       "js": ["script.js"],
-      "run_at": "document_start"
+      "run_at": "document_end"
     }
   ],
   "icons": {

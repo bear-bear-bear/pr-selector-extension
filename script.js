@@ -3,6 +3,11 @@ const TEMPLATE_NAME = {
     fix: 'FIX.md',
 };
 
+const PR_BUTTON_CONTENT = {
+    draft: 'Draft pull request',
+    create: 'Create pull request',
+};
+
 const selectorHTMLString = `
     <div class="ex-select-wrapper">
       <select class="ex-select">
@@ -41,17 +46,28 @@ function registryOnChangeEventToSelectEl(selectEl) {
     })
 }
 
-window.addEventListener("DOMContentLoaded", () => {
-    const PRCreateButton = [...document.querySelectorAll('button')].find((v) => {
-        return v.querySelector('span')?.textContent.trim() === 'Create pull request';
+function init () {
+    const PRButtonContents = Object.values(PR_BUTTON_CONTENT);
+    const PRCreateButton = [...document.querySelectorAll('button')].find((button) => {
+        const childSpan = button.querySelector('span');
+        const buttonTextContent = childSpan?.textContent.trim();
+        if (!buttonTextContent) return;
+
+        return PRButtonContents.includes(buttonTextContent);
     })
 
-    if (!PRCreateButton) return;
+
+    if (!PRCreateButton) {
+        console.warn('[PR Selector]: Fail to find PRCreateButton');
+        return;
+    }
 
     const parentOfPRCreateButton = PRCreateButton.closest('.BtnGroup');
-    const selector = createElementFromHTMLTemplate(selectorHTMLString);
 
+    const selector = createElementFromHTMLTemplate(selectorHTMLString);
     registryOnChangeEventToSelectEl(selector.querySelector('select'));
 
     parentOfPRCreateButton.parentElement.insertBefore(selector, parentOfPRCreateButton);
-});
+};
+
+init();
