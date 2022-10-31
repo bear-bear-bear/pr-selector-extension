@@ -1,6 +1,13 @@
+const TEMPLATE_KEY = 'template';
 const TEMPLATE_NAME = {
     feature: 'FEATURE.md',
     fix: 'FIX.md',
+};
+
+const SELECTOR_IDENTIFIER = {
+    wrapper: 'ex-select-wrapper',
+    select: 'ex-select',
+    optionForPlaceholder: 'ex-select__option--placeholder',
 };
 
 const PR_BUTTON_CONTENT = {
@@ -9,13 +16,13 @@ const PR_BUTTON_CONTENT = {
 };
 
 const selectorHTMLString = `
-    <div class="ex-select-wrapper">
-      <select class="ex-select">
+    <div id=${SELECTOR_IDENTIFIER.wrapper}>
+      <select id="${SELECTOR_IDENTIFIER.select}">
         <option
-            value=""
+            value="-- Select PR template --"
             disabled
             selected
-            class="ex-select__option--placeholder"
+            id="${SELECTOR_IDENTIFIER.optionForPlaceholder}"
         >
             -- Select PR template --
         </option>
@@ -32,14 +39,13 @@ function createElementFromHTMLTemplate(htmlString) {
     return div.firstChild;
 }
 
-function setQueryState(key, value) {
-    const url = new URL(location.href);
-    url.searchParams.set(key, value);
+function injectSelector() {
+    const alreadyInjected = document.getElementById(SELECTOR_IDENTIFIER.wrapper);
+    if (alreadyInjected) return;
 
-    location.href = url.href;
-}
+    const prEditorOpened = document.body.classList.contains('is-pr-composer-expanded');
+    if (!prEditorOpened) return;
 
-function init () {
     const PRButtonContents = Object.values(PR_BUTTON_CONTENT);
     const PRCreateButton = [...document.querySelectorAll('button')].find((button) => {
         const childSpan = button.querySelector('span');
@@ -48,7 +54,6 @@ function init () {
 
         return PRButtonContents.includes(buttonTextContent);
     })
-
 
     if (!PRCreateButton) {
         console.warn('[PR Selector]: Fail to find PRCreateButton');
@@ -59,12 +64,30 @@ function init () {
     const selector = createElementFromHTMLTemplate(selectorHTMLString);
     const selectEl = selector.querySelector('select');
 
+    const url = new URL(location.href);
+
+    const currentTemplate = url.searchParams.get(TEMPLATE_KEY);
+    if (currentTemplate) {
+        const currentOption = selectEl.querySelector(`option[value="${currentTemplate}"]`);
+
+        if (currentOption) {
+            const optionForPlaceholder = selectEl.querySelector(`#${SELECTOR_IDENTIFIER.optionForPlaceholder}`);
+            optionForPlaceholder?.removeAttribute('selected');
+
+            currentOption.disabled = true;
+            currentOption.defaultSelected = true;
+        }
+    }
+
     selectEl.addEventListener('change', (e) => {
         const templateName = e.target.value;
-        setQueryState('template', templateName);
+        url.searchParams.set(TEMPLATE_KEY, templateName);
+        location.href = url.href;
     })
 
     parentOfPRCreateButton.parentElement.insertBefore(selector, parentOfPRCreateButton);
 };
 
-init();
+setInterval(() => {
+    injectSelector();
+}, 2000);

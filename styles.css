@@ -4,7 +4,7 @@
     --ex-darkgray: #2c3e50;
 }
 
-.ex-select-wrapper {
+#ex-select-wrapper {
     position: relative;
     display: flex;
     width: 15em;
@@ -14,7 +14,7 @@
     margin-right: 0.2em;
 }
 /* Arrow */
-.ex-select-wrapper::after {
+#ex-select-wrapper::after {
     content: '\25BC';
     position: absolute;
     top: 0;
@@ -31,10 +31,10 @@
     font-size: 0.9em;
 }
 /* Transition */
-.ex-select-wrapper:hover::after {
+#ex-select-wrapper:hover::after {
 }
 
-.ex-select {
+#ex-select {
     /* Reset Select */
     appearance: none;
     outline: 0;
@@ -49,9 +49,9 @@
     cursor: pointer;
 }
 /* Remove IE arrow */
-.ex-select::-ms-expand {
+#ex-select::-ms-expand {
     display: none;
 }
-.ex-select__option--placeholder {
+#ex-select__option--placeholder {
     display: none;
 }
