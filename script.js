@@ -39,13 +39,6 @@ function setQueryState(key, value) {
     location.href = url.href;
 }
 
-function registryOnChangeEventToSelectEl(selectEl) {
-    selectEl.addEventListener('change', (e) => {
-        const templateName = e.target.value;
-        setQueryState('template', templateName);
-    })
-}
-
 function init () {
     const PRButtonContents = Object.values(PR_BUTTON_CONTENT);
     const PRCreateButton = [...document.querySelectorAll('button')].find((button) => {
@@ -63,9 +56,13 @@ function init () {
     }
 
     const parentOfPRCreateButton = PRCreateButton.closest('.BtnGroup');
-
     const selector = createElementFromHTMLTemplate(selectorHTMLString);
-    registryOnChangeEventToSelectEl(selector.querySelector('select'));
+    const selectEl = selector.querySelector('select');
+
+    selectEl.addEventListener('change', (e) => {
+        const templateName = e.target.value;
+        setQueryState('template', templateName);
+    })
 
     parentOfPRCreateButton.parentElement.insertBefore(selector, parentOfPRCreateButton);
 };
