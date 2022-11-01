@@ -40,11 +40,11 @@ function createElementFromHTMLTemplate(htmlString) {
 }
 
 function injectSelector() {
-    const alreadyInjected = document.getElementById(SELECTOR_IDENTIFIER.wrapper);
-    if (alreadyInjected) return;
-
     const prEditorOpened = document.body.classList.contains('is-pr-composer-expanded');
     if (!prEditorOpened) return;
+
+    const alreadyInjected = document.getElementById(SELECTOR_IDENTIFIER.wrapper);
+    if (alreadyInjected) return;
 
     const PRButtonContents = Object.values(PR_BUTTON_CONTENT);
     const PRCreateButton = [...document.querySelectorAll('button')].find((button) => {
