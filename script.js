@@ -45,31 +45,35 @@ waitDomReady().then(async () => {
     // Append options
     const templates = await templateParsingJob;
 
-    for(const template of templates) {
-      const $label = document.createElement('label');
-      $label.classList = 'select-menu-item';
-      $label.style.padding = '8px 16px';
-      $label.style.textAlign = 'right';
+    if(templates.length > 0) {
+      for (const template of templates) {
+        const $label = document.createElement('label');
+        $label.classList = 'select-menu-item';
+        $label.style.padding = '8px 16px';
+        $label.style.textAlign = 'right';
 
-      const $templateText = document.createElement('span');
-      $templateText.textContent = template.title;
-      $templateText.classList = 'select-menu-item-heading';
+        const $templateText = document.createElement('span');
+        $templateText.textContent = template.title;
+        $templateText.classList = 'select-menu-item-heading';
 
-      $label.append($templateText);
-      $detailsMenu.append($label);
+        $label.append($templateText);
+        $detailsMenu.append($label);
 
-      $label.addEventListener('click', () => {
-        $details.open = false;
-        $selectTitle.textContent = template.title;
-        $pull_request_body.value = template.content;
-      });
+        $label.addEventListener('click', () => {
+          $details.open = false;
+          $selectTitle.textContent = template.title;
+          $pull_request_body.value = template.content;
+        });
+      }
+
+      $select.append($selectTitle);
+      $select.append($details);
+
+      $pull_request_footer.prepend($select);
+      console.log(`%cpr-selector %chas appended successfully`, `color: ${highlightColor}`, '');
+    } else {
+      console.log(`There is no templates. not appending pr-selector`);
     }
-
-    $select.append($selectTitle);
-    $select.append($details);
-
-    $pull_request_footer.prepend($select);
-    console.log(`%cpr-selector %chas appended successfully`, `color: ${highlightColor}`, '');
 
     await waitElement('#pull_request_body', document,true);
     console.log('%cPull Request form %cdestroyed', `color: ${highlightColor}`, '');
@@ -80,33 +84,37 @@ waitDomReady().then(async () => {
 
 async function fetchTemplates() {
   console.log('Start parsing templates on background');
-  const matches = document.URL.match(/github.com\/(.+?)\/(.+?)\//);
 
-  if(!!matches) {
-    console.warn('Failed to parsing templates');
+  try {
+    const [_, company, repository] = document.URL.match(/github.com\/(.+?)\/(.+?)\//);
+    const res = await fetch([GITHUB_URL, company, repository, 'tree', defaultBranch, '.github', templateFolder].join('/'));
+    if(!res.ok) {
+      console.warn('No template folder:', templateFolder);
+      return [];
+    }
+
+    const text = await res.text();
+
+    const $document = new DOMParser().parseFromString(text, 'text/html');
+    const $innerFiles = [...$document.querySelectorAll('div[data-test-selector=subdirectory-container] div[role=grid] div[role=row].js-navigation-item')].slice(1);
+    const templateNames = $innerFiles.map($elem => $elem.querySelector('div[role=rowheader] span a').text);
+    console.log(`Detected templates: %c[${templateNames.join(', ')}]`, `color: ${highlightColor}`);
+
+    const templateRequests = templateNames.map(templateName => {
+      return fetch([GITHUB_URL, company, repository, 'raw', defaultBranch, '.github', templateFolder, templateName].join('/'))
+        .then(async res => {
+          return {
+            title: templateName,
+            content: await res.text()
+          }
+        });
+    });
+
+    return await Promise.all(templateRequests);
+  } catch {
+    console.warn('Failed to fetch templates');
     return [];
   }
-
-  const [_, company, repository] = matches;
-  const res = await fetch([GITHUB_URL, company, repository, 'tree', defaultBranch, '.github', templateFolder].join('/'));
-  const text = await res.text();
-
-  const $document = new DOMParser().parseFromString(text, 'text/html');
-  const $innerFiles = [...$document.querySelectorAll('div[data-test-selector=subdirectory-container] div[role=grid] div[role=row].js-navigation-item')].slice(1);
-  const templateNames = $innerFiles.map($elem => $elem.querySelector('div[role=rowheader] span a').text);
-  console.log(`Detected templates: %c[${templateNames.join(', ')}]`, `color: ${highlightColor}`);
-
-  const templateRequests = templateNames.map(templateName => {
-    return fetch([GITHUB_URL, company, repository, 'raw', defaultBranch, '.github', templateFolder, templateName].join('/'))
-      .then(async res => {
-        return {
-          title: templateName,
-          content: await res.text()
-        }
-      });
-  });
-
-  return await Promise.all(templateRequests);
 }
 
 function waitDomReady() {
