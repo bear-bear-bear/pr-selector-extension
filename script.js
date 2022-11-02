@@ -1,93 +1,129 @@
-const TEMPLATE_KEY = 'template';
-const TEMPLATE_NAME = {
-    feature: 'FEATURE.md',
-    fix: 'FIX.md',
-};
+const GITHUB_URL = 'https://github.com';
 
-const SELECTOR_IDENTIFIER = {
-    wrapper: 'ex-select-wrapper',
-    select: 'ex-select',
-    optionForPlaceholder: 'ex-select__option--placeholder',
-};
+const defaultBranch = 'develop';
+const templateFolder = 'PULL_REQUEST_TEMPLATE';
+const [_, company, repository] = document.URL.match(/github.com\/(.+?)\/(.+?)\//);
+const templateParsingJob = parseTemplates();
 
-const PR_BUTTON_CONTENT = {
-    draft: 'Draft pull request',
-    create: 'Create pull request',
-};
+waitDomReady()
+  .then(async () => {
+    const $pr_form = document.querySelector('turbo-frame form div[data-view-component=true].Layout-main .js-slash-command-surface');
 
-const selectorHTMLString = `
-    <div id=${SELECTOR_IDENTIFIER.wrapper}>
-      <select id="${SELECTOR_IDENTIFIER.select}">
-        <option
-            value="-- Select PR template --"
-            disabled
-            selected
-            id="${SELECTOR_IDENTIFIER.optionForPlaceholder}"
-        >
-            -- Select PR template --
-        </option>
-        <option value="${TEMPLATE_NAME.feature}">Feature</option>
-        <option value="${TEMPLATE_NAME.fix}">Fix</option>
-      </select>
-    </div>
-`;
+    // Wait until pull_request_body rendered
+    const $pull_request_body = await waitElement('#pull_request_body', $pr_form);
+    console.log('pull_request_body detected');
 
-function createElementFromHTMLTemplate(htmlString) {
-    const div = document.createElement('div');
-    div.innerHTML = htmlString.trim();
+    // Add template selector
+    const $pull_request_footer = $pr_form.querySelector('div.flex-md-justify-end');
 
-    return div.firstChild;
+    // Create select
+    const $select = document.createElement('div');
+    $select.classList.add('BtnGroup');
+
+    const $selectTitle = document.createElement('div');
+    $selectTitle.textContent = 'Choose template';
+    $selectTitle.classList = 'btn-secondary btn BtnGroup-item flex-auto';
+
+    const $details = document.createElement('details');
+    $details.classList = 'details-reset details-overlay select-menu BtnGroup-parent position-relative';
+    const $summary = document.createElement('summary');
+    $summary.classList = 'select-menu-button btn-secondary btn BtnGroup-item float-none';
+
+    const $detailsMenu = document.createElement('details-menu');
+    $detailsMenu.classList = 'select-menu-modal position-absolute right-0 js-sync-select-menu-text';
+    $detailsMenu.style.width = 'auto';
+    $detailsMenu.style.zIndex = '99';
+    $detailsMenu.setAttribute('data-focus-trap', 'suspended');
+
+    $details.append($summary);
+    $details.append($detailsMenu);
+
+
+    // Append options
+    const templates = await templateParsingJob;
+
+    for(const template of templates) {
+      const $label = document.createElement('label');
+      $label.classList = 'select-menu-item';
+      $label.style.padding = '8px 16px';
+      $label.style.textAlign = 'right';
+
+      const $templateText = document.createElement('span');
+      $templateText.textContent = template.title;
+      $templateText.classList = 'select-menu-item-heading';
+
+      $label.append($templateText);
+      $detailsMenu.append($label);
+
+      $label.addEventListener('click', () => {
+        $details.open = false;
+        $selectTitle.textContent = template.title;
+        $pull_request_body.value = template.content;
+      });
+    }
+
+    $select.append($selectTitle);
+    $select.append($details);
+
+    $pull_request_footer.prepend($select);
+  });
+
+async function parseTemplates() {
+  const res = await fetch([GITHUB_URL, company, repository, 'tree', defaultBranch, '.github', templateFolder].join('/'));
+  const text = await res.text();
+
+  const $document = new DOMParser().parseFromString(text, 'text/html');
+  const $innerFiles = [...$document.querySelectorAll('div[data-test-selector=subdirectory-container] div[role=grid] div[role=row].js-navigation-item')].slice(1);
+  const templateNames = $innerFiles.map($elem => $elem.querySelector('div[role=rowheader] span a').text);
+  console.log(`Detected templates: [${templateNames.join(', ')}]`);
+
+  const templateRequests = templateNames.map(templateName => {
+    return fetch([GITHUB_URL, company, repository, 'raw', defaultBranch, '.github', templateFolder, templateName].join('/'))
+      .then(async res => {
+        return {
+          title: templateName,
+          content: await res.text()
+        }
+      });
+  });
+
+  return await Promise.all(templateRequests);
 }
 
-function injectSelector() {
-    const prEditorOpened = document.body.classList.contains('is-pr-composer-expanded');
-    if (!prEditorOpened) return;
+function waitDomReady() {
+  return new Promise(resolve => {
+    if (document.readyState === "complete") {
+      resolve();
+    } else {
+      window.addEventListener("load", () => {
+        resolve();
+      }, {
+        once: true,
+      });
+    }
+  });
+}
 
-    const alreadyInjected = document.getElementById(SELECTOR_IDENTIFIER.wrapper);
-    if (alreadyInjected) return;
+function waitElement(selector, parent) {
+  return new Promise(resolve => {
+    let $item = parent.querySelector(selector);
 
-    const PRButtonContents = Object.values(PR_BUTTON_CONTENT);
-    const PRCreateButton = [...document.querySelectorAll('button')].find((button) => {
-        const childSpan = button.querySelector('span');
-        const buttonTextContent = childSpan?.textContent.trim();
-        if (!buttonTextContent) return;
+    if($item)
+      resolve($item);
 
-        return PRButtonContents.includes(buttonTextContent);
+    const observer = new MutationObserver(mutations => {
+      $item = parent.querySelector(selector);
+
+      if($item) {
+        resolve($item);
+        observer.disconnect();
+      }
     })
 
-    if (!PRCreateButton) {
-        console.warn('[PR Selector]: Fail to find PRCreateButton');
-        return;
-    }
+    observer.observe(parent, {
+      childList: true, subtree: true
+    });
+  });
+}
 
-    const parentOfPRCreateButton = PRCreateButton.closest('.BtnGroup');
-    const selector = createElementFromHTMLTemplate(selectorHTMLString);
-    const selectEl = selector.querySelector('select');
 
-    const url = new URL(location.href);
-
-    const currentTemplate = url.searchParams.get(TEMPLATE_KEY);
-    if (currentTemplate) {
-        const currentOption = selectEl.querySelector(`option[value="${currentTemplate}"]`);
-
-        if (currentOption) {
-            const optionForPlaceholder = selectEl.querySelector(`#${SELECTOR_IDENTIFIER.optionForPlaceholder}`);
-            optionForPlaceholder?.removeAttribute('selected');
-
-            currentOption.disabled = true;
-            currentOption.defaultSelected = true;
-        }
-    }
-
-    selectEl.addEventListener('change', (e) => {
-        const templateName = e.target.value;
-        url.searchParams.set(TEMPLATE_KEY, templateName);
-        location.href = url.href;
-    })
-
-    parentOfPRCreateButton.parentElement.insertBefore(selector, parentOfPRCreateButton);
-};
-
-setInterval(() => {
-    injectSelector();
-}, 2000);
