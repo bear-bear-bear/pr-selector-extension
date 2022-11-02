@@ -1,17 +1,20 @@
 const GITHUB_URL = 'https://github.com';
-
 const defaultBranch = 'develop';
 const templateFolder = 'PULL_REQUEST_TEMPLATE';
-const [_, company, repository] = document.URL.match(/github.com\/(.+?)\/(.+?)\//);
-const templateParsingJob = parseTemplates();
 
-waitDomReady()
-  .then(async () => {
+const highlightColor = 'pink';
+
+console.log('%cpr-selector-extension %chas loaded', `color: ${highlightColor}`, '');
+
+waitDomReady().then(async () => {
+
+  while(true) {
+    console.log('Waiting %cPull Request form element..', `color: ${highlightColor}`);
+    const $pull_request_body = await waitElement('#pull_request_body', document, false);
+    console.log('%cPull Request form element %cdetected', `color: ${highlightColor}`, '');
     const $pr_form = document.querySelector('turbo-frame form div[data-view-component=true].Layout-main .js-slash-command-surface');
 
-    // Wait until pull_request_body rendered
-    const $pull_request_body = await waitElement('#pull_request_body', $pr_form);
-    console.log('pull_request_body detected');
+    const templateParsingJob = fetchTemplates();
 
     // Add template selector
     const $pull_request_footer = $pr_form.querySelector('div.flex-md-justify-end');
@@ -66,16 +69,32 @@ waitDomReady()
     $select.append($details);
 
     $pull_request_footer.prepend($select);
-  });
+    console.log(`%cpr-selector %chas appended successfully`, `color: ${highlightColor}`, '');
 
-async function parseTemplates() {
+    await waitElement('#pull_request_body', document,true);
+    console.log('%cPull Request form %cdestroyed', `color: ${highlightColor}`, '');
+
+    console.log('reload pr-selector');
+  }
+});
+
+async function fetchTemplates() {
+  console.log('Start parsing templates on background');
+  const matches = document.URL.match(/github.com\/(.+?)\/(.+?)\//);
+
+  if(!!matches) {
+    console.warn('Failed to parsing templates');
+    return [];
+  }
+
+  const [_, company, repository] = matches;
   const res = await fetch([GITHUB_URL, company, repository, 'tree', defaultBranch, '.github', templateFolder].join('/'));
   const text = await res.text();
 
   const $document = new DOMParser().parseFromString(text, 'text/html');
   const $innerFiles = [...$document.querySelectorAll('div[data-test-selector=subdirectory-container] div[role=grid] div[role=row].js-navigation-item')].slice(1);
   const templateNames = $innerFiles.map($elem => $elem.querySelector('div[role=rowheader] span a').text);
-  console.log(`Detected templates: [${templateNames.join(', ')}]`);
+  console.log(`Detected templates: %c[${templateNames.join(', ')}]`, `color: ${highlightColor}`);
 
   const templateRequests = templateNames.map(templateName => {
     return fetch([GITHUB_URL, company, repository, 'raw', defaultBranch, '.github', templateFolder, templateName].join('/'))
@@ -92,9 +111,13 @@ async function parseTemplates() {
 
 function waitDomReady() {
   return new Promise(resolve => {
+    console.log('Waiting DOM is ready..');
+
     if (document.readyState === "complete") {
+      console.log('DOM is now ready');
       resolve();
     } else {
+      console.log('DOM is now ready');
       window.addEventListener("load", () => {
         resolve();
       }, {
@@ -104,17 +127,19 @@ function waitDomReady() {
   });
 }
 
-function waitElement(selector, parent) {
+function waitElement(selector, parent, destroy=false) {
   return new Promise(resolve => {
     let $item = parent.querySelector(selector);
 
-    if($item)
+    // Check is element is already loaded.
+    if(!destroy && !!$item === !destroy) {
       resolve($item);
+    }
 
     const observer = new MutationObserver(mutations => {
       $item = parent.querySelector(selector);
 
-      if($item) {
+      if(!!$item === !destroy) {
         resolve($item);
         observer.disconnect();
       }
@@ -125,5 +150,3 @@ function waitElement(selector, parent) {
     });
   });
 }
-
-
