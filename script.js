@@ -14,7 +14,7 @@ waitDomReady().then(async () => {
     console.log('%cPull Request form element %cdetected', `color: ${highlightColor}`, '');
     const $pr_form = document.querySelector('turbo-frame form div[data-view-component=true].Layout-main .js-slash-command-surface');
 
-    const templateParsingJob = fetchTemplates();
+    const templateFetchingJob = fetchTemplates();
 
     // Add template selector
     const $pull_request_footer = $pr_form.querySelector('div.flex-md-justify-end');
@@ -43,7 +43,7 @@ waitDomReady().then(async () => {
 
 
     // Append options
-    const templates = await templateParsingJob;
+    const templates = await templateFetchingJob;
 
     if(templates.length > 0) {
       for (const template of templates) {
@@ -135,12 +135,12 @@ function waitDomReady() {
   });
 }
 
-function waitElement(selector, parent, destroy=false) {
+function waitElement(selector, parent, destroy = false) {
   return new Promise(resolve => {
     let $item = parent.querySelector(selector);
 
     // Check is element is already loaded.
-    if(!destroy && !!$item === !destroy) {
+    if (!destroy && !!$item === !destroy) {
       resolve($item);
     }
 
@@ -148,8 +148,8 @@ function waitElement(selector, parent, destroy=false) {
       $item = parent.querySelector(selector);
 
       if(!!$item === !destroy) {
-        resolve($item);
         observer.disconnect();
+        resolve($item);
       }
     })
 
