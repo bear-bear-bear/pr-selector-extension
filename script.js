@@ -93,7 +93,7 @@ const PrSelector = (() => {
 
         $listItem.addEventListener('click', () => {
           $frame.querySelector('details').open = false;
-          $frame.querySelector('.pr-selector-title').textContent = prTemplate.title;
+          $frame.querySelector('.pr-selector-title span').textContent = prTemplate.title;
           $_prBody.value = prTemplate.content;
         });
       }
@@ -102,7 +102,7 @@ const PrSelector = (() => {
     setCurrentTemplate: function (template) {
       const $frame = _elements['$frame'];
 
-      $frame.querySelector('.pr-selector-title').textContent = template.title;
+      $frame.querySelector('.pr-selector-title span').textContent = template.title;
       $_prBody.value = template.content;
     },
 
