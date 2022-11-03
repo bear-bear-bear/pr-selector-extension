@@ -182,7 +182,7 @@ function waitDomReady() {
 }
 
 function waitElement(selector, parent, destroy = false) {
-  return new Promise(resolve => {
+  return new Promise((resolve, reject) => {
     let $item = parent.querySelector(selector);
 
     // Check is element is already loaded.
@@ -197,7 +197,7 @@ function waitElement(selector, parent, destroy = false) {
         observer.disconnect();
         resolve($item);
       }
-    })
+    });
 
     observer.observe(parent, {
       childList: true, subtree: true
@@ -251,10 +251,17 @@ waitDomReady().then(async () => {
       console.log(`No template selected`);
     }
 
-    // Wait until pull request destroyed
-    await waitElement('#pull_request_body', document, true);
-    console.log('%cPull Request form %cdestroyed', `color: ${highlightColor}`, '');
+    const waitPageChange = async () => {
+      await waitElement('.turbo-progress-bar', document, false);
+      await waitElement('.turbo-progress-bar', document, true);
+    }
 
-    console.log('reload pr-selector');
+    // Wait until pull request destroyed
+    await Promise.any([
+      waitElement('#pull_request_body', document, true),
+      waitPageChange()
+    ]);
+
+    console.log('%cPull Request form %cdestroyed. reload pr-selector', `color: ${highlightColor}`, '');
   }
 });
