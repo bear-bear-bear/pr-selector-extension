@@ -2,3 +2,7 @@
   background-color: var(--color-btn-bg);
   border-color: var(--color-btn-border);
 }
+
+#PrSelector.disabled details summary {
+  pointer-events: none; /* prevents click events */
+}
