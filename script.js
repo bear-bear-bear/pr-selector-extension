@@ -66,11 +66,21 @@ const PrSelector = (() => {
       });
     },
 
+    injectIssueNumber: (content, compareBranch) => {
+      if (/.+?\/QP-\d+/.test(compareBranch)) {
+        const issueNumber = compareBranch.match(/^.+?\/([^/]+)/)[1];
+        return content.replaceAll('ISSUE_NUMBER', issueNumber);
+      }
+
+      return content;
+    },
+
     /***
      * Set pr templates
      * @param {[ {title: string, content: string} ]} prTemplates
+     * @param {{compareBranch: string, baseBranch: string, company: string, repository: string}} gitInfo
      */
-    setTemplates: function (prTemplates) {
+    setTemplates: function (prTemplates, gitInfo) {
       const $frame = _elements['$frame'];
 
       if (prTemplates.length === 0) {
@@ -94,16 +104,16 @@ const PrSelector = (() => {
         $listItem.addEventListener('click', () => {
           $frame.querySelector('details').open = false;
           $frame.querySelector('.pr-selector-title span').textContent = prTemplate.title;
-          $_prBody.value = prTemplate.content;
+          $_prBody.value = this.injectIssueNumber(prTemplate.content, gitInfo.compareBranch);
         });
       }
     },
 
-    setCurrentTemplate: function (template) {
+    setCurrentTemplate: function (template, gitInfo) {
       const $frame = _elements['$frame'];
 
       $frame.querySelector('.pr-selector-title span').textContent = template.title;
-      $_prBody.value = template.content;
+      $_prBody.value = this.injectIssueNumber(template.content, gitInfo.compareBranch);
     },
 
     getElement: function () {
@@ -231,13 +241,19 @@ waitDomReady().then(async () => {
     console.log('githubInfo:', githubInfo);
     const fetchTemplatesJob = fetchTemplates(githubInfo);
 
+    const compareBranchName = githubInfo.compareBranch;
+    if (compareBranchName.startsWith('feature/QP-') || compareBranchName.startsWith('fix/QP-')) {
+      const matches = compareBranchName.match(/^(.+?)\/(.+)$/);
+      document.querySelector('#pull_request_title').value = `${matches[1]}(_): `;
+    }
+
     // Inject element
     const $pr_form = document.querySelector('turbo-frame form div[data-view-component=true].Layout-main .js-slash-command-surface');
     const $pull_request_footer = $pr_form.querySelector('div.flex-md-justify-end');
     $pull_request_footer.prepend(PrSelector.getElement());
 
     const templates = await fetchTemplatesJob
-    PrSelector.setTemplates(templates);
+    PrSelector.setTemplates(templates, githubInfo);
 
     // Auto template select
     const suggestTemplate = templates.find(({title}) =>
@@ -246,7 +262,7 @@ waitDomReady().then(async () => {
 
     if (!!suggestTemplate) {
       console.log(`Template %c${suggestTemplate.title} %cis automatically selected`, `color: ${highlightColor}`, '');
-      PrSelector.setCurrentTemplate(suggestTemplate);
+      PrSelector.setCurrentTemplate(suggestTemplate, githubInfo);
     } else {
       console.log(`No template selected`);
     }
