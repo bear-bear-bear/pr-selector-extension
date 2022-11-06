@@ -1,93 +1,283 @@
-const TEMPLATE_KEY = 'template';
-const TEMPLATE_NAME = {
-    feature: 'FEATURE.md',
-    fix: 'FIX.md',
-};
+const GITHUB_URL = 'https://github.com';
+const PrSelector = (() => {
+  const _templates = {
+    frame: `
+<div id="PrSelector" class="BtnGroup">
+  <div class="pr-selector-title btn-secondary btn BtnGroup-item flex-auto">
+    <span class="tooltipped tooltipped-s tooltipped-multiline" aria-label="Clear a comment to change template">
+      Choose template
+    </span>
+  </div>
+  <details class="details-reset details-overlay select-menu BtnGroup-parent position-relative">
+    <summary class="select-menu-button btn-secondary btn BtnGroup-item float-none" aria-haspopup="menu" role="button"></summary>
+    <details-menu class="pr-selector-list select-menu-modal position-absolute right-0 js-sync-select-menu-text" data-focus-trap="active" role="menu" style="width: auto; z-index: 99;">
+      <!--
+      <label class="pr-selector-list-item select-menu-item" style="padding: 8px 16px; text-align: right;">
+        <span class="select-menu-item-heading">FEATURE.md</span>
+      </label>
+      -->
+    </details-menu>
+  </details>
+</div>`,
+    listItem: `
+<label class="pr-selector-list-item select-menu-item" style="padding: 8px 16px; text-align: right;">
+  <span class="pr-selector-list-item-title select-menu-item-heading">FEATURE.md</span>
+</label>`
+  };
 
-const SELECTOR_IDENTIFIER = {
-    wrapper: 'ex-select-wrapper',
-    select: 'ex-select',
-    optionForPlaceholder: 'ex-select__option--placeholder',
-};
+  const _elements = {};
+  for (const templateType of Object.keys(_templates)) {
+    _elements['$' + templateType] = createElement(_templates[templateType]);
+  }
 
-const PR_BUTTON_CONTENT = {
-    draft: 'Draft pull request',
-    create: 'Create pull request',
-};
+  let $_prBody;
 
-const selectorHTMLString = `
-    <div id=${SELECTOR_IDENTIFIER.wrapper}>
-      <select id="${SELECTOR_IDENTIFIER.select}">
-        <option
-            value="-- Select PR template --"
-            disabled
-            selected
-            id="${SELECTOR_IDENTIFIER.optionForPlaceholder}"
-        >
-            -- Select PR template --
-        </option>
-        <option value="${TEMPLATE_NAME.feature}">Feature</option>
-        <option value="${TEMPLATE_NAME.fix}">Fix</option>
-      </select>
-    </div>
-`;
+  return {
+    setDisabled(isDisabled) {
+      const $frame = _elements['$frame'];
+      if (isDisabled && !$frame.classList.contains('disabled')) {
+        $frame.classList.add('disabled');
+        [...$frame.querySelectorAll('.btn-secondary')].forEach($e => {
+          $e.classList.add('disabled');
+        })
+      } else if (!isDisabled && $frame.classList.contains('disabled')) {
+        $frame.classList.remove('disabled');
+        [...$frame.querySelectorAll('.btn-secondary')].forEach($e => {
+          $e.classList.remove('disabled');
+        })
+      }
+    },
 
-function createElementFromHTMLTemplate(htmlString) {
-    const div = document.createElement('div');
-    div.innerHTML = htmlString.trim();
+    setPrBody(prBody) {
+      $_prBody = prBody;
 
-    return div.firstChild;
+      if ($_prBody.value.length > 0) {
+        this.setDisabled(true);
+      } else {
+        this.setDisabled(false);
+      }
+
+      $_prBody.addEventListener('keyup', () => {
+        if ($_prBody.value.length > 0) {
+          this.setDisabled(true);
+        } else {
+          this.setDisabled(false);
+        }
+      });
+    },
+
+    injectIssueNumber: (content, compareBranch) => {
+      if (/.+?\/QP-\d+/.test(compareBranch)) {
+        const issueNumber = compareBranch.match(/^.+?\/([^/]+)/)[1];
+        return content.replaceAll('ISSUE_NUMBER', issueNumber);
+      }
+
+      return content;
+    },
+
+    /***
+     * Set pr templates
+     * @param {[ {title: string, content: string} ]} prTemplates
+     * @param {{compareBranch: string, baseBranch: string, company: string, repository: string}} gitInfo
+     */
+    setTemplates: function (prTemplates, gitInfo) {
+      const $frame = _elements['$frame'];
+
+      if (prTemplates.length === 0) {
+        $frame.style.display = 'none';
+        return;
+      }
+
+      $frame.style.display = '';
+
+      // Clean pr-selector-list children
+      const $list = $frame.querySelector('.pr-selector-list');
+      [...$list.children].forEach($e => $e.remove());
+
+      // templates: [{ title: string, content: string }]
+      for (let prTemplate of prTemplates) {
+        let $listItem = _elements['$listItem'].cloneNode(true);
+        $listItem.querySelector('span.pr-selector-list-item-title').innerText = prTemplate.title;
+
+        $list.append($listItem);
+
+        $listItem.addEventListener('click', () => {
+          $frame.querySelector('details').open = false;
+          $frame.querySelector('.pr-selector-title span').textContent = prTemplate.title;
+          $_prBody.value = this.injectIssueNumber(prTemplate.content, gitInfo.compareBranch);
+        });
+      }
+    },
+
+    setCurrentTemplate: function (template, gitInfo) {
+      const $frame = _elements['$frame'];
+
+      $frame.querySelector('.pr-selector-title span').textContent = template.title;
+      $_prBody.value = this.injectIssueNumber(template.content, gitInfo.compareBranch);
+    },
+
+    getElement: function () {
+      return _elements['$frame'];
+    }
+  };
+})();
+
+/***
+ * Parse github information from current location URL
+ * @returns {{compareBranch: string, baseBranch: string, company: string, repository: string}}
+ */
+function getGithubInfo() {
+  const [_, company, repository, baseBranch, compareBranch] = document.URL.match(/https:\/\/github.com\/(.+?)\/(.+)\/compare\/(.+)\.\.\.(.+)$/);
+  return {
+    company, repository, baseBranch, compareBranch
+  };
 }
 
-function injectSelector() {
-    const prEditorOpened = document.body.classList.contains('is-pr-composer-expanded');
-    if (!prEditorOpened) return;
+async function fetchHTML(url) {
+  const res = await fetch(url)
+  return new DOMParser().parseFromString(await res.text(), 'text/html');
+}
 
-    const alreadyInjected = document.getElementById(SELECTOR_IDENTIFIER.wrapper);
-    if (alreadyInjected) return;
+async function fetchTemplates({company, repository}) {
+  let defaultBranch = (await fetchHTML([GITHUB_URL, company, repository].join('/')))
+    .querySelector('#branch-select-menu')
+    .querySelector('span[data-menu-button]').textContent;
 
-    const PRButtonContents = Object.values(PR_BUTTON_CONTENT);
-    const PRCreateButton = [...document.querySelectorAll('button')].find((button) => {
-        const childSpan = button.querySelector('span');
-        const buttonTextContent = childSpan?.textContent.trim();
-        if (!buttonTextContent) return;
+  console.log(`Start fetching templates from ${company} ${repository} ${defaultBranch}`);
 
-        return PRButtonContents.includes(buttonTextContent);
-    })
+  let $document;
+  try {
+    $document = await fetchHTML([GITHUB_URL, company, repository, 'tree', defaultBranch, '.github', templateFolder].join('/'));
+  } catch (e) {
+    console.warn('Failed to get templates');
+    return [];
+  }
 
-    if (!PRCreateButton) {
-        console.warn('[PR Selector]: Fail to find PRCreateButton');
-        return;
-    }
+  // Fetch template file list
+  const $innerFiles = [...$document.querySelectorAll('div[data-test-selector=subdirectory-container] div[role=grid] div[role=row].js-navigation-item')].slice(1);
+  const templateNames = $innerFiles.map($elem => $elem.querySelector('div[role=rowheader] span a').text);
 
-    const parentOfPRCreateButton = PRCreateButton.closest('.BtnGroup');
-    const selector = createElementFromHTMLTemplate(selectorHTMLString);
-    const selectEl = selector.querySelector('select');
+  console.log(`Detected templates: %c[${templateNames.join(', ')}]`, `color: ${highlightColor}`);
 
-    const url = new URL(location.href);
-
-    const currentTemplate = url.searchParams.get(TEMPLATE_KEY);
-    if (currentTemplate) {
-        const currentOption = selectEl.querySelector(`option[value="${currentTemplate}"]`);
-
-        if (currentOption) {
-            const optionForPlaceholder = selectEl.querySelector(`#${SELECTOR_IDENTIFIER.optionForPlaceholder}`);
-            optionForPlaceholder?.removeAttribute('selected');
-
-            currentOption.disabled = true;
-            currentOption.defaultSelected = true;
+  // Fetch template file contents
+  const templateRequests = templateNames.map(templateName => {
+    return fetch([GITHUB_URL, company, repository, 'raw', defaultBranch, '.github', templateFolder, templateName].join('/'))
+      .then(async res => {
+        return {
+          title: templateName,
+          content: await res.text()
         }
+      });
+  });
+
+  return await Promise.all(templateRequests);
+}
+
+function waitDomReady() {
+  return new Promise(resolve => {
+    console.log('Waiting DOM is ready..');
+
+    if (document.readyState === "complete") {
+      console.log('DOM is now ready');
+      resolve();
+    } else {
+      console.log('DOM is now ready');
+      window.addEventListener("load", () => {
+        resolve();
+      }, {
+        once: true,
+      });
+    }
+  });
+}
+
+function waitElement(selector, parent, destroy = false) {
+  return new Promise((resolve, reject) => {
+    let $item = parent.querySelector(selector);
+
+    // Check is element is already loaded.
+    if (!destroy && !!$item === !destroy) {
+      resolve($item);
     }
 
-    selectEl.addEventListener('change', (e) => {
-        const templateName = e.target.value;
-        url.searchParams.set(TEMPLATE_KEY, templateName);
-        location.href = url.href;
-    })
+    const observer = new MutationObserver(mutations => {
+      $item = parent.querySelector(selector);
 
-    parentOfPRCreateButton.parentElement.insertBefore(selector, parentOfPRCreateButton);
-};
+      if (!!$item === !destroy) {
+        observer.disconnect();
+        resolve($item);
+      }
+    });
 
-setInterval(() => {
-    injectSelector();
-}, 2000);
+    observer.observe(parent, {
+      childList: true, subtree: true
+    });
+  });
+}
+
+function createElement(html) {
+  const $div = document.createElement('div');
+  $div.innerHTML = html.trim();
+  return $div.firstChild;
+}
+
+
+/*** Main ***/
+const templateFolder = 'PULL_REQUEST_TEMPLATE';
+const highlightColor = 'pink';
+
+console.log('%cpr-selector-extension %chas loaded', `color: ${highlightColor}`, '');
+
+waitDomReady().then(async () => {
+  while (true) {
+
+    console.log('Waiting %cPull Request form element..', `color: ${highlightColor}`);
+    const $pull_request_body = await waitElement('#pull_request_body', document, false);
+
+    console.log('%cPull Request form element %cdetected', `color: ${highlightColor}`, '');
+    PrSelector.setPrBody($pull_request_body);
+
+    const githubInfo = getGithubInfo();
+    console.log('githubInfo:', githubInfo);
+    const fetchTemplatesJob = fetchTemplates(githubInfo);
+
+    const compareBranchName = githubInfo.compareBranch;
+    if (compareBranchName.startsWith('feature/QP-') || compareBranchName.startsWith('fix/QP-')) {
+      const matches = compareBranchName.match(/^(.+?)\/(.+)$/);
+      document.querySelector('#pull_request_title').value = `${matches[1]}(_): `;
+    }
+
+    // Inject element
+    const $pr_form = document.querySelector('turbo-frame form div[data-view-component=true].Layout-main .js-slash-command-surface');
+    const $pull_request_footer = $pr_form.querySelector('div.flex-md-justify-end');
+    $pull_request_footer.prepend(PrSelector.getElement());
+
+    const templates = await fetchTemplatesJob
+    PrSelector.setTemplates(templates, githubInfo);
+
+    // Auto template select
+    const suggestTemplate = templates.find(({title}) =>
+      title.replace(/\.([^.]+)$/, '').toLowerCase().startsWith(githubInfo.compareBranch.split('/')[0].toLowerCase())
+    );
+
+    if (!!suggestTemplate) {
+      console.log(`Template %c${suggestTemplate.title} %cis automatically selected`, `color: ${highlightColor}`, '');
+      PrSelector.setCurrentTemplate(suggestTemplate, githubInfo);
+    } else {
+      console.log(`No template selected`);
+    }
+
+    const waitPageChange = async () => {
+      await waitElement('.turbo-progress-bar', document, false);
+      await waitElement('.turbo-progress-bar', document, true);
+    }
+
+    // Wait until pull request destroyed
+    await Promise.any([
+      waitElement('#pull_request_body', document, true),
+      waitPageChange()
+    ]);
+
+    console.log('%cPull Request form %cdestroyed. reload pr-selector', `color: ${highlightColor}`, '');
+  }
+});
