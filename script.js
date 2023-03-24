@@ -153,9 +153,7 @@ async function fetchTemplates({company, repository}) {
     return [];
   }
 
-  // Fetch template file list
-  const $innerFiles = [...$document.querySelectorAll('div[data-test-selector=subdirectory-container] div[role=grid] div[role=row].js-navigation-item')].slice(1);
-  const templateNames = $innerFiles.map($elem => $elem.querySelector('div[role=rowheader] span a').text);
+  const templateNames = [...$document.querySelectorAll('[role=rowheader]')].slice(1).map($el => $el.querySelector('a').textContent);
 
   console.log(`Detected templates: %c[${templateNames.join(', ')}]`, `color: ${highlightColor}`);
 
