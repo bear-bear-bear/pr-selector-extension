@@ -127,7 +127,7 @@ const PrSelector = (() => {
  * @returns {{compareBranch: string, baseBranch: string, company: string, repository: string}}
  */
 function getGithubInfo() {
-  const [_, company, repository, baseBranch, compareBranch] = document.URL.match(/https:\/\/github.com\/(.+?)\/(.+)\/compare\/(.+)\.\.\.(.+)$/);
+  const [_, company, repository, baseBranch, compareBranch] = document.URL.match(/https:\/\/github.com\/(.+?)\/(.+)\/compare\/(.+)\.\.\.([^?]+)/);
   return {
     company, repository, baseBranch, compareBranch
   };
