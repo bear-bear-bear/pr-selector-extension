@@ -239,10 +239,12 @@ waitDomReady().then(async () => {
     console.log('githubInfo:', githubInfo);
     const fetchTemplatesJob = fetchTemplates(githubInfo);
 
+    // Set title
     const compareBranchName = githubInfo.compareBranch;
-    if (compareBranchName.startsWith('feature/QP-') || compareBranchName.startsWith('fix/QP-')) {
-      const matches = compareBranchName.match(/^(.+?)\/(.+)$/);
-      document.querySelector('#pull_request_title').value = `${matches[1]}(_): `;
+
+    const issueNumber = /[^/]+\/([a-zA-Z]+-\d+)$/.exec(compareBranchName)?.[1];
+    if (issueNumber) {
+      document.querySelector('#pull_request_title').value = `[${issueNumber}] `;
     }
 
     // Inject element
