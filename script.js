@@ -67,7 +67,7 @@ const PrSelector = (() => {
     },
 
     injectIssueNumber: (content, compareBranch) => {
-      if (/.+?\/QP-\d+/.test(compareBranch)) {
+      if (/.+?\/[a-zA-Z]+-\d+/.test(compareBranch)) {
         const issueNumber = compareBranch.match(/^.+?\/([^/]+)/)[1];
         return content.replaceAll('ISSUE_NUMBER', issueNumber);
       }
